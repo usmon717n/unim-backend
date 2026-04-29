@@ -1,18 +1,24 @@
 import { Injectable, ConflictException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { User, SafeUser } from './interfaces/user.interface';
 import { CreateUserDto } from './dto/create-user.dto';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class UsersService {
-  private readonly users: User[] = [];
+  constructor(private readonly prisma: PrismaService) {}
 
-  async findByEmail(email: string): Promise<User | undefined> {
-    return this.users.find((u) => u.email === email.toLowerCase());
+  async findByEmail(email: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+    });
   }
 
-  async findById(id: string): Promise<User | undefined> {
-    return this.users.find((u) => u.id === id);
+  async findById(id: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { id },
+    });
   }
 
   async create(dto: CreateUserDto): Promise<SafeUser> {
@@ -22,16 +28,22 @@ export class UsersService {
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
-    const user: User = {
-      id: crypto.randomUUID(),
-      name: dto.name,
-      email: dto.email.toLowerCase(),
-      passwordHash,
-      createdAt: new Date(),
-    };
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          name: dto.name,
+          email: dto.email.toLowerCase(),
+          passwordHash,
+        },
+      });
 
-    this.users.push(user);
-    return this.toSafeUser(user);
+      return this.toSafeUser(user);
+    } catch (error) {
+      if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('Bu email allaqachon ro\'yxatdan o\'tgan');
+      }
+      throw error;
+    }
   }
 
   async validatePassword(user: User, password: string): Promise<boolean> {

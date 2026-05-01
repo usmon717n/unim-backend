@@ -16,15 +16,15 @@ export class AccountController {
     return this.accountService.updateProfile(updateProfileDto);
   }
 
-  // UniM Pass endpoints
-  @Get('unim-pass')
-  getUnimPass() {
-    return this.accountService.getUnimPass();
+  // Avimed Pass endpoints
+  @Get('avimed-pass')
+  getAvimedPass() {
+    return this.accountService.getAvimedPass();
   }
 
-  @Put('unim-pass')
-  updateUnimPass(@Body() updateUnimPassDto: any) {
-    return this.accountService.updateUnimPass(updateUnimPassDto);
+  @Put('avimed-pass')
+  updateAvimedPass(@Body() updateAvimedPassDto: any) {
+    return this.accountService.updateAvimedPass(updateAvimedPassDto);
   }
 
   // Documents endpoints

@@ -40,8 +40,8 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('UniM API')
-    .setDescription('UniM backend API hujjatlari')
+    .setTitle('Avimed API')
+    .setDescription('Avimed backend API hujjatlari')
     .setVersion('1.0.0')
     .addBearerAuth()
     .build();

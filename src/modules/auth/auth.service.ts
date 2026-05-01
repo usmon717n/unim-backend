@@ -4,6 +4,7 @@ import { UsersService } from '../users/users.service';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { SafeUser } from '../users/interfaces/user.interface';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
+import { looksLikePhone, normalizePhone } from '../../common/helpers/phone.helper';
 
 export interface AuthResponse {
   accessToken: string;
@@ -17,8 +18,11 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async validateUser(email: string, password: string): Promise<SafeUser | null> {
-    const user = await this.usersService.findByEmail(email);
+  async validateUser(identifier: string, password: string): Promise<SafeUser | null> {
+    const user = looksLikePhone(identifier)
+      ? await this.usersService.findByPhone(normalizePhone(identifier))
+      : await this.usersService.findByEmail(identifier);
+
     if (!user) return null;
 
     const isValid = await this.usersService.validatePassword(user, password);
@@ -37,7 +41,11 @@ export class AuthService {
   }
 
   private signToken(user: SafeUser): string {
-    const payload: JwtPayload = { sub: user.id, email: user.email, name: user.name };
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email ?? null,
+      name: user.name ?? null,
+    };
     return this.jwtService.sign(payload);
   }
 }

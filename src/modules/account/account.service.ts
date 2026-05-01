@@ -12,7 +12,7 @@ export class AccountService {
     status: 'active',
   };
 
-  private unimPass = {
+  private avimedPass = {
     id: '1',
     cardNumber: '8829 4521 7890 1234',
     balance: 250000,
@@ -110,14 +110,14 @@ export class AccountService {
     return this.profile;
   }
 
-  // UniM Pass methods
-  getUnimPass() {
-    return this.unimPass;
+  // Avimed Pass methods
+  getAvimedPass() {
+    return this.avimedPass;
   }
 
-  updateUnimPass(updateUnimPassDto: any) {
-    this.unimPass = { ...this.unimPass, ...updateUnimPassDto };
-    return this.unimPass;
+  updateAvimedPass(updateAvimedPassDto: any) {
+    this.avimedPass = { ...this.avimedPass, ...updateAvimedPassDto };
+    return this.avimedPass;
   }
 
   // Documents methods

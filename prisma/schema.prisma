@@ -22,16 +22,46 @@ enum RepeatType {
   MONTHLY
 }
 
+enum MetricType {
+  HEART_RATE
+  STEPS
+  SLEEP
+}
+
+enum DataSource {
+  MANUAL
+  APPLE_HEALTH
+  GOOGLE_FIT
+  SAMSUNG_HEALTH
+}
+
 model User {
-  id           String     @id @default(uuid())
-  name         String?
-  email        String?    @unique
-  phoneNumber  String?    @unique @map("phone_number")
-  passwordHash String     @map("password_hash")
-  createdAt    DateTime   @default(now()) @map("created_at")
-  planTasks    PlanTask[]
+  id             String         @id @default(uuid())
+  name           String?
+  email          String?        @unique
+  phoneNumber    String?        @unique @map("phone_number")
+  passwordHash   String         @map("password_hash")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  planTasks      PlanTask[]
+  healthMetrics  HealthMetric[]
 
   @@map("users")
+}
+
+model HealthMetric {
+  id         String     @id @default(uuid())
+  userId     String     @map("user_id")
+  type       MetricType
+  value      Float
+  metadata   Json?
+  recordedAt DateTime   @map("recorded_at")
+  source     DataSource @default(MANUAL)
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type, recordedAt])
+  @@map("health_metrics")
 }
 
 model PlanTask {

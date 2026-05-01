@@ -57,5 +57,6 @@ model PlanTask {
   @@index([userId, date])
   @@index([userId, repeatType])
   @@index([userId, scheduledTime])
+  @@unique([userId, date, scheduledTime])
   @@map("plan_tasks")
 }

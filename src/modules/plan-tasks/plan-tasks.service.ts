@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, PlanTask } from '@prisma/client';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePlanTaskDto } from './dto/create-plan-task.dto';
 import { QueryPlanTasksDto } from './dto/query-plan-tasks.dto';
@@ -11,21 +12,29 @@ export class PlanTasksService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(userId: string, dto: CreatePlanTaskDto) {
-    return this.prisma.planTask.create({
-      data: {
-        userId,
-        title: dto.title,
-        description: dto.description,
-        type: dto.type,
-        icon: dto.icon,
-        color: dto.color,
-        scheduledTime: dto.scheduledTime,
-        date: this.parseDate(dto.date),
-        repeatType: dto.repeatType ?? RepeatType.NONE,
-        reminderEnabled: dto.reminderEnabled ?? false,
-        reminderTime: dto.reminderTime,
-      },
-    });
+    const parsedDate = this.parseDate(dto.date);
+    await this.assertNoTimeConflict(userId, parsedDate, dto.scheduledTime);
+
+    try {
+      return await this.prisma.planTask.create({
+        data: {
+          userId,
+          title: dto.title,
+          description: dto.description,
+          type: dto.type,
+          icon: dto.icon,
+          color: dto.color,
+          scheduledTime: dto.scheduledTime,
+          date: parsedDate,
+          repeatType: dto.repeatType ?? RepeatType.NONE,
+          reminderEnabled: dto.reminderEnabled ?? false,
+          reminderTime: dto.reminderTime,
+        },
+      });
+    } catch (error) {
+      this.rethrowUniqueTimeConflict(error);
+      throw error;
+    }
   }
 
   async findAll(userId: string, query: QueryPlanTasksDto) {
@@ -74,23 +83,31 @@ export class PlanTasksService {
   }
 
   async update(userId: string, id: string, dto: UpdatePlanTaskDto) {
-    await this.findOne(userId, id);
+    const current = await this.findOne(userId, id);
+    const nextDate = dto.date !== undefined ? this.parseDate(dto.date) : current.date;
+    const nextScheduledTime = dto.scheduledTime ?? current.scheduledTime;
+    await this.assertNoTimeConflict(userId, nextDate, nextScheduledTime, id);
 
-    return this.prisma.planTask.update({
-      where: { id },
-      data: {
-        ...(dto.title !== undefined ? { title: dto.title } : {}),
-        ...(dto.description !== undefined ? { description: dto.description } : {}),
-        ...(dto.type !== undefined ? { type: dto.type } : {}),
-        ...(dto.icon !== undefined ? { icon: dto.icon } : {}),
-        ...(dto.color !== undefined ? { color: dto.color } : {}),
-        ...(dto.scheduledTime !== undefined ? { scheduledTime: dto.scheduledTime } : {}),
-        ...(dto.date !== undefined ? { date: this.parseDate(dto.date) } : {}),
-        ...(dto.repeatType !== undefined ? { repeatType: dto.repeatType } : {}),
-        ...(dto.reminderEnabled !== undefined ? { reminderEnabled: dto.reminderEnabled } : {}),
-        ...(dto.reminderTime !== undefined ? { reminderTime: dto.reminderTime } : {}),
-      },
-    });
+    try {
+      return await this.prisma.planTask.update({
+        where: { id },
+        data: {
+          ...(dto.title !== undefined ? { title: dto.title } : {}),
+          ...(dto.description !== undefined ? { description: dto.description } : {}),
+          ...(dto.type !== undefined ? { type: dto.type } : {}),
+          ...(dto.icon !== undefined ? { icon: dto.icon } : {}),
+          ...(dto.color !== undefined ? { color: dto.color } : {}),
+          ...(dto.scheduledTime !== undefined ? { scheduledTime: dto.scheduledTime } : {}),
+          ...(dto.date !== undefined ? { date: nextDate } : {}),
+          ...(dto.repeatType !== undefined ? { repeatType: dto.repeatType } : {}),
+          ...(dto.reminderEnabled !== undefined ? { reminderEnabled: dto.reminderEnabled } : {}),
+          ...(dto.reminderTime !== undefined ? { reminderTime: dto.reminderTime } : {}),
+        },
+      });
+    } catch (error) {
+      this.rethrowUniqueTimeConflict(error);
+      throw error;
+    }
   }
 
   async complete(userId: string, id: string) {
@@ -202,6 +219,33 @@ export class PlanTasksService {
 
   private parseDate(dateValue: string): Date {
     return new Date(`${dateValue}T00:00:00.000Z`);
+  }
+
+  private async assertNoTimeConflict(
+    userId: string,
+    date: Date,
+    scheduledTime: string,
+    excludeId?: string,
+  ): Promise<void> {
+    const conflict = await this.prisma.planTask.findFirst({
+      where: {
+        userId,
+        date,
+        scheduledTime,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+      select: { id: true },
+    });
+
+    if (conflict) {
+      throw new ConflictException('Ushbu sana va vaqtda allaqachon reja mavjud');
+    }
+  }
+
+  private rethrowUniqueTimeConflict(error: unknown): void {
+    if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw new ConflictException('Ushbu sana va vaqtda allaqachon reja mavjud');
+    }
   }
 
   private startOfDay(date: Date): Date {

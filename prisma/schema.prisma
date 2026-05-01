@@ -7,12 +7,55 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum PlanTaskType {
+  MEDICINE
+  SPORT
+  WATER
+  VITAMIN
+  CUSTOM
+}
+
+enum RepeatType {
+  NONE
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
 model User {
-  id           String   @id @default(uuid())
+  id           String     @id @default(uuid())
   name         String
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  createdAt    DateTime @default(now()) @map("created_at")
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  planTasks    PlanTask[]
 
   @@map("users")
+}
+
+model PlanTask {
+  id              String       @id @default(uuid())
+  userId          String       @map("user_id")
+  title           String
+  description     String?
+  type            PlanTaskType
+  icon            String?
+  color           String?
+  scheduledTime   String       @map("scheduled_time")
+  date            DateTime
+  isCompleted     Boolean      @default(false) @map("is_completed")
+  completedAt     DateTime?    @map("completed_at")
+  repeatType      RepeatType   @default(NONE) @map("repeat_type")
+  reminderEnabled Boolean      @default(false) @map("reminder_enabled")
+  reminderTime    String?      @map("reminder_time")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, date])
+  @@index([userId, repeatType])
+  @@index([userId, scheduledTime])
+  @@map("plan_tasks")
 }
